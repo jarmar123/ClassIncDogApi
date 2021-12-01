@@ -41,14 +41,25 @@ namespace WpfDogs
 
 		#endregion
 
-		public DogViewModel()
+		public DogViewModel(): this(new DogBreedService())
+		{
+			
+		}
+
+		public DogViewModel(IDogServiceInterface service)
 		{
 			DogList = new ObservableCollection<Dog>();
 			FilteredDogList = new ObservableCollection<Dog>();
 
 			//I'm not sure how WPF MVVM works with inject so i'm instantiating and setting here.
 			//property is designed for injection though.
-			DogService = new DogBreedService();
+			DogService = service;
+
+			DogService.ImageUrlUpdated -= OnImageUrlUpdated;
+			DogService.ImageUrlUpdated += OnImageUrlUpdated;
+
+			DogService.BreedsListUpdated -= OnBreedsListUpdated;
+			DogService.BreedsListUpdated += OnBreedsListUpdated;
 		}
 
 		/// <summary>
@@ -139,18 +150,6 @@ namespace WpfDogs
 			}
 		}
 
-		//public string Breed
-		//{
-		//	get { return breed; }
-		//	set
-		//	{
-		//		breed = value;
-		//		OnPropertyChanged("Breed");
-		//	}
-		//}
-
-		//public string SubBreed { get; set; }
-
 		public string SearchText
 		{
 			get { return searchText; }
@@ -192,83 +191,19 @@ namespace WpfDogs
 
 		private void GetImagesForSelectedBreed()
 		{
-			//SelectedDogBreed update comes from Ui via main thread.
-			//Kicking off a new thread to handle the calling of the API.
-			//After response is received, pass update back to UI via main thread using Dispatcher.
-			//Ui update is not awaited, giving it back as soon as the update is done.
-			Task.Run(async () =>
-			{
-				var resp = await DogService.GetImagesForBreed(selectedDogBreed.Breed);
+			//This is done for threading purposes due to the async changes.
+			//If you click around really quick and then do a breed request.
+			var dog = selectedDogBreed;
+			if (dog == null)
+				return;
 
-				if (resp.status != "success")
-					return;
-
-				if (resp.message.Length < 1)
-					return;
-
-				Application.Current.Dispatcher.BeginInvoke(
-					new Action(() =>
-					{
-						ImageUrl = GetRandomImageUrl(resp.message);
-
-					}), DispatcherPriority.Background);
-			});
+			DogService.GetImagesForBreedAsync(selectedDogBreed.Breed);
 		}
 
 		private void GetAllBreeds()
 		{
-			//Kicking off task on work thread to not lock up UI.
-			Task.Run(async () =>
-			{
-				var e = await DogService.GetAllBreeds();
-
-				if (e.status != "success")
-					return;
-
-				Application.Current.Dispatcher.BeginInvoke(
-					new Action(() =>
-					{
-						DogList.Clear();
-
-						//convert to ObservableCollection<Dog>
-						foreach (var breedName in e.Message.Keys)
-						{
-							string[] subBreeds = e.Message[breedName];
-							if (subBreeds.Length < 1)
-							{
-								DogList.Add(new Dog(breedName));
-							}
-							else
-							{
-								foreach (var subBreed in subBreeds)
-								{
-									DogList.Add(new Dog(breedName, subBreed));
-								}
-							}
-						}
-						FilteredDogList = new ObservableCollection<Dog>(DogList);
-
-					}), DispatcherPriority.Background);
-
-			});
+			DogService.GetAllBreedsAsync();
 		}
-
-		//private void SortDogList()
-		//{
-		//	switch (SortType)
-		//	{
-		//		case "Breed":
-		//			FilteredDogList = new ObservableCollection<Dog>(FilteredDogList.OrderBy(dog => dog.Breed)
-		//				.ThenBy(dog => dog.SubBreed).ToList());
-		//			break;
-		//		case "ZA":
-		//			FilteredDogList = new ObservableCollection<Dog>(FilteredDogList.OrderByDescending(dog => dog.DisplayName).ToList());
-		//			break;
-		//		default:
-		//			FilteredDogList = new ObservableCollection<Dog>(FilteredDogList.OrderBy(dog => dog.DisplayName).ToList());
-		//			break;
-		//	}
-		//}
 
 		private void SortDogList(ObservableCollection<Dog> dogList)
 		{
@@ -291,52 +226,52 @@ namespace WpfDogs
 		//Originally, i planned to update the UI via events in a non-dependent pattern.  For example if the service ever decided to send unproprted images/updates
 		//I was unsure if this would come across or make sense, so i scrapped it.
 		//I left the code commented out so you could see the thought process if you want, although the inner logic is pretty much the same as what exists.
-		//private void CloudInterface_BreedsListUpdated(object sender, BreedsResponse e)
-		//{
-		//	if (e.status != "success")
-		//		return;
+		private void OnBreedsListUpdated(object sender, BreedsResponse e)
+		{
+			if (e.status != "success")
+				return;
 
-		//	Application.Current.Dispatcher.BeginInvoke(
-		//		new Action(() =>
-		//		{
-		//			DogList.Clear();
+			Application.Current.Dispatcher.BeginInvoke(
+				new Action(() =>
+				{
+					DogList.Clear();
 
-		//			//convert to ObservableCollection<Dog>
-		//			foreach (var breedName in e.Message.Keys)
-		//			{
-		//				string[] subBreeds = e.Message[breedName];
-		//				if (subBreeds.Length < 1)
-		//				{
-		//					DogList.Add(new Dog(breedName));
-		//				}
-		//				else
-		//				{
-		//					foreach (var subBreed in subBreeds)
-		//					{
-		//						DogList.Add(new Dog(breedName, subBreed));
-		//					}
-		//				}
-		//			}
-		//			FilteredDogList = new ObservableCollection<Dog>(DogList);
+					//convert to ObservableCollection<Dog>
+					foreach (var breedName in e.Message.Keys)
+					{
+						string[] subBreeds = e.Message[breedName];
+						if (subBreeds.Length < 1)
+						{
+							DogList.Add(new Dog(breedName));
+						}
+						else
+						{
+							foreach (var subBreed in subBreeds)
+							{
+								DogList.Add(new Dog(breedName, subBreed));
+							}
+						}
+					}
+					FilteredDogList = new ObservableCollection<Dog>(DogList);
 
-		//		}), DispatcherPriority.Background);
-		//}
+				}), DispatcherPriority.Background);
+		}
 
-		//private void CloudInterface_ImageUrlUpdated(object sender, BreedImagesResponse e)
-		//{
-		//	if (e.status != "success")
-		//		return;
+		private void OnImageUrlUpdated(object sender, BreedImagesResponse e)
+		{
+			if (e.status != "success")
+				return;
 
-		//	if (e.Message.Length < 1)
-		//		return;
+			if (e.message.Length < 1)
+				return;
 
-		//	Application.Current.Dispatcher.BeginInvoke(
-		//		new Action(() =>
-		//		{
-		//			ImageUrl = GetRandomImageUrl(e.Message);
+			Application.Current.Dispatcher.BeginInvoke(
+				new Action(() =>
+				{
+					ImageUrl = GetRandomImageUrl(e.message);
 
-		//		}), DispatcherPriority.Background);
-		//}
+				}), DispatcherPriority.Background);
+		}
 
 		private Random r;
 		private string GetRandomImageUrl(string[] imageUrls)
@@ -357,6 +292,72 @@ namespace WpfDogs
 		{
 			PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 		}
+		#endregion
+
+		#region Deprecated
+
+		//private void GetImagesForSelectedBreedDeprecated()
+		//{
+		//	//SelectedDogBreed update comes from Ui via main thread.
+		//	//Kicking off a new thread to handle the calling of the API.
+		//	//After response is received, pass update back to UI via main thread using Dispatcher.
+		//	//Ui update is not awaited, giving it back as soon as the update is done.
+		//	Task.Run(async () =>
+		//	{
+		//		var resp = DogService.GetImagesForBreed(selectedDogBreed.Breed);
+
+		//		if (resp.status != "success")
+		//			return;
+
+		//		if (resp.message.Length < 1)
+		//			return;
+
+		//		Application.Current.Dispatcher.BeginInvoke(
+		//			new Action(() =>
+		//			{
+		//				ImageUrl = GetRandomImageUrl(resp.message);
+
+		//			}), DispatcherPriority.Background);
+		//	});
+		//}
+
+		//private void GetAllBreedsDeprecated()
+		//{
+		//	//Kicking off task on work thread to not lock up UI.
+		//	Task.Run(async () =>
+		//	{
+		//		var e = DogService.GetAllBreeds();
+
+		//		if (e.status != "success")
+		//			return;
+
+		//		Application.Current.Dispatcher.BeginInvoke(
+		//			new Action(() =>
+		//			{
+		//				DogList.Clear();
+
+		//				//convert to ObservableCollection<Dog>
+		//				foreach (var breedName in e.Message.Keys)
+		//				{
+		//					string[] subBreeds = e.Message[breedName];
+		//					if (subBreeds.Length < 1)
+		//					{
+		//						DogList.Add(new Dog(breedName));
+		//					}
+		//					else
+		//					{
+		//						foreach (var subBreed in subBreeds)
+		//						{
+		//							DogList.Add(new Dog(breedName, subBreed));
+		//						}
+		//					}
+		//				}
+		//				FilteredDogList = new ObservableCollection<Dog>(DogList);
+
+		//			}), DispatcherPriority.Background);
+
+		//	});
+		//}
 		#endregion
 	}
 }

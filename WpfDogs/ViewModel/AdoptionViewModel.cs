@@ -18,8 +18,6 @@ namespace WpfDogs.ViewModel
 	public class AdoptViewModel : INotifyPropertyChanged
 	{
 		private IAdoptionService AdoptionService;
-		//private bool hasNextPage;
-		//private bool hasPreviousPage;
 		private string prevousLink;
 		private string nextLink;
 
@@ -28,9 +26,16 @@ namespace WpfDogs.ViewModel
 		private ICommand getNextPage;
 		private ICommand getPreviousPage;
 
-		public AdoptViewModel()
+		public AdoptViewModel() : this(new AdoptionService())
 		{
-			AdoptionService = new AdoptionService();
+
+		}
+
+		public AdoptViewModel(IAdoptionService service)
+		{
+			AdoptionService = service;
+			AdoptionService.AdoptableAnimalsUpdate -= AdoptionService_AdoptableAnimalsUpdate;
+			AdoptionService.AdoptableAnimalsUpdate += AdoptionService_AdoptableAnimalsUpdate;
 		}
 
 		public ICommand GetAdoptablePets
@@ -141,6 +146,10 @@ namespace WpfDogs.ViewModel
 
 					}), DispatcherPriority.Background);
 			});
+
+			//This would be how I intended to use the async version of page flip.  It just isn't necessary due
+			//to the buttons enable property waiting on the existence of previous/next links
+			//AdoptionService.TriggerPageFlipAsync(linkSuffix);
 		}
 
 		private bool CheckPreviousPageButtonEnabled()
@@ -150,18 +159,19 @@ namespace WpfDogs.ViewModel
 
 		private void GetPets()
 		{
-			Task.Run(async () =>
-			{
-				AnimalsMessage adoptableAnimalsMessage = AdoptionService.GetAdoptableAnimals();
+			//No need for Task run here because the method automatically kicks off a new thread.
+			AdoptionService.TriggerAdoptableAnimalsGetAsync();
+		}
 
-				Application.Current.Dispatcher.BeginInvoke(
-						new Action(() =>
-						{
-							PopulateAdoptableAnimalsCollection(adoptableAnimalsMessage);
-							UpdateArrowButtons(adoptableAnimalsMessage);
+		private void AdoptionService_AdoptableAnimalsUpdate(object sender, AnimalsMessage animalsMessage)
+		{
+			Application.Current.Dispatcher.BeginInvoke(
+				new Action(() =>
+				{
+					PopulateAdoptableAnimalsCollection(animalsMessage);
+					UpdateArrowButtons(animalsMessage);
 
-						}), DispatcherPriority.Background);
-			});
+				}), DispatcherPriority.Background);
 		}
 
 		private void UpdateArrowButtons(AnimalsMessage message)
