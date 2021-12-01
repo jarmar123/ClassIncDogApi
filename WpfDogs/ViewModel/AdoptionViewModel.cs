@@ -136,7 +136,7 @@ namespace WpfDogs.ViewModel
 		{
 			Task.Run(async () =>
 			{
-				AnimalsMessage adoptableAnimalsMessage = AdoptionService.GetPageFlip(linkSuffix);
+				AnimalsMessage adoptableAnimalsMessage = await AdoptionService.GetPageFlip(linkSuffix);
 
 				Application.Current.Dispatcher.BeginInvoke(
 					new Action(() =>
@@ -189,7 +189,6 @@ namespace WpfDogs.ViewModel
 				DisplayAnimalsList.Add(displayAnimal);
 			}
 		}
-
 		#endregion
 
 		#region INotifyPropertyChanged

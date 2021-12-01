@@ -19,9 +19,9 @@ namespace WpfDogs.Web
 		/// </summary>
 		event EventHandler<AnimalsMessage> AdoptableAnimalsUpdate;
 
-		string GetToken();
-		AnimalsMessage GetAdoptableAnimals();
-		AnimalsMessage GetPageFlip(string pageDirectionSuffix);
+		Task<string> GetToken();
+		Task<AnimalsMessage> GetAdoptableAnimals();
+		Task<AnimalsMessage> GetPageFlip(string pageDirectionSuffix);
 
 		Task TriggerAdoptableAnimalsGetAsync();
 		Task TriggerPageFlipAsync(string linkSuffix);
@@ -47,7 +47,7 @@ namespace WpfDogs.Web
 		}
 
 		//Leaving this method non async for getting
-		public string GetToken()
+		public async Task<string> GetToken()
 		{
 			var postData = new List<KeyValuePair<string, string>>();
 			postData.Add(new KeyValuePair<string, string>("grant_type", "client_credentials"));
@@ -58,10 +58,10 @@ namespace WpfDogs.Web
 			content.Headers.ContentType = new MediaTypeHeaderValue("application/x-www-form-urlencoded");
 
 			//The result property call forces thread to wait.
-			var responseResult = client.PostAsync(tokenUrl, content).Result;
+			var responseResult = await client.PostAsync(tokenUrl, content);
 
 			var statuscode = responseResult.StatusCode;
-			var jsonResult = responseResult.Content.ReadAsStringAsync().Result;
+			var jsonResult = await responseResult.Content.ReadAsStringAsync();
 
 			var atr = JsonConvert.DeserializeObject<AccessTokenResponse>(jsonResult);
 			token = atr.access_token;
@@ -75,13 +75,13 @@ namespace WpfDogs.Web
 			return atr.access_token;
 		}
 
-		public AnimalsMessage GetAdoptableAnimals()
+		public Task<AnimalsMessage> GetAdoptableAnimals()
 		{
 			const string animalsUrl = "https://api.petfinder.com/v2/animals?status=adopted";
 			return MakeAnimalsRequest(animalsUrl);
 		}
 
-		public AnimalsMessage GetPageFlip(string pageDirectionSuffix)
+		public Task<AnimalsMessage> GetPageFlip(string pageDirectionSuffix)
 		{
 			const string baseAnimalsUrl = "https://api.petfinder.com";
 
@@ -89,12 +89,14 @@ namespace WpfDogs.Web
 			return MakeAnimalsRequest(animalsUrl);
 		}
 
+
+		//These trigger methods are not async because they are not to be awaited.  THey are set and forget, updates come through the events.
 		public Task TriggerAdoptableAnimalsGetAsync()
 		{
 			const string animalsUrl = "https://api.petfinder.com/v2/animals?status=adopted";
 			return Task.Run(async () =>
 			{
-				var animalsMessage = MakeAnimalsRequest(animalsUrl);
+				var animalsMessage = await  MakeAnimalsRequest(animalsUrl);
 				RaiseAdoptableAnimalsUpdate(animalsMessage);
 			});
 		}
@@ -106,15 +108,15 @@ namespace WpfDogs.Web
 			return Task.Run(async () =>
 			{
 				string animalsUrl = baseAnimalsUrl + pageDirectionSuffix;
-				var animalsMessage = MakeAnimalsRequest(animalsUrl);
+				var animalsMessage = await MakeAnimalsRequest(animalsUrl);
 				RaiseAdoptableAnimalsUpdate(animalsMessage);
 			});
 		}
 
-		private AnimalsMessage MakeAnimalsRequest(string animalsUrl)
+		private async Task<AnimalsMessage> MakeAnimalsRequest(string animalsUrl)
 		{
 			if (NeedsNewToken())
-				GetToken();
+				await GetToken();
 
 			client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 			HttpResponseMessage result = client.GetAsync(animalsUrl).Result;
@@ -125,10 +127,9 @@ namespace WpfDogs.Web
 				Debug.WriteLine($"Error in method: {nameof(GetAdoptableAnimals)}. Url: {animalsUrl} Error Code: {result.StatusCode}");
 			}
 
-			Task<string> infoTask = result.Content.ReadAsStringAsync();
-			infoTask.Wait();
+			string json = await result.Content.ReadAsStringAsync();
 
-			AnimalsMessage response = JsonConvert.DeserializeObject<AnimalsMessage>(infoTask.Result);
+			AnimalsMessage response = JsonConvert.DeserializeObject<AnimalsMessage>(json);
 
 			return response;
 		}
