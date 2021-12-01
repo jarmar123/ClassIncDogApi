@@ -14,9 +14,17 @@ namespace WpfDogs.Web
 {
 	public interface IAdoptionService
 	{
+		/// <summary>
+		/// Fires when new adoptable animals page comes in TriggerAdoptableAnimalsGetAsync has finished
+		/// </summary>
+		event EventHandler<AnimalsMessage> AdoptableAnimalsUpdate;
+
 		string GetToken();
 		AnimalsMessage GetAdoptableAnimals();
 		AnimalsMessage GetPageFlip(string pageDirectionSuffix);
+
+		Task TriggerAdoptableAnimalsGetAsync();
+		Task TriggerPageFlipAsync(string linkSuffix);
 	}
 
 	public class AdoptionService: IAdoptionService
@@ -27,6 +35,9 @@ namespace WpfDogs.Web
 		public string clientSecret = $"WiGBVldqVEszUglEIsqpEfhdSeWnSDPf5jARagJr";
 
 		public string token = null;
+
+		public event EventHandler<AnimalsMessage> AdoptableAnimalsUpdate;
+
 		public bool HasToken { get; private set; }
 		public DateTime TokenExpireTime { get; private set; }
 
@@ -35,6 +46,7 @@ namespace WpfDogs.Web
 			client = new HttpClient();
 		}
 
+		//Leaving this method non async for getting
 		public string GetToken()
 		{
 			var postData = new List<KeyValuePair<string, string>>();
@@ -77,10 +89,28 @@ namespace WpfDogs.Web
 			return MakeAnimalsRequest(animalsUrl);
 		}
 
-		//For this service i chose to leave the methods non-async.
-		// I made the methods in the other DogBreedService async to show you my thought process.  leaving the event driven code commented out.
-		//Those methods would be async so i could run them, forget it, and then have the events populate the ViewMmodel via the Dispatcher.
-		//I changed it because i'm unsure of the expected WPF patterning and also it's easier to read as a service i think?
+		public Task TriggerAdoptableAnimalsGetAsync()
+		{
+			const string animalsUrl = "https://api.petfinder.com/v2/animals?status=adopted";
+			return Task.Run(async () =>
+			{
+				var animalsMessage = MakeAnimalsRequest(animalsUrl);
+				RaiseAdoptableAnimalsUpdate(animalsMessage);
+			});
+		}
+
+		public Task TriggerPageFlipAsync(string pageDirectionSuffix)
+		{
+			const string baseAnimalsUrl = "https://api.petfinder.com";
+			
+			return Task.Run(async () =>
+			{
+				string animalsUrl = baseAnimalsUrl + pageDirectionSuffix;
+				var animalsMessage = MakeAnimalsRequest(animalsUrl);
+				RaiseAdoptableAnimalsUpdate(animalsMessage);
+			});
+		}
+
 		private AnimalsMessage MakeAnimalsRequest(string animalsUrl)
 		{
 			if (NeedsNewToken())
@@ -101,6 +131,11 @@ namespace WpfDogs.Web
 			AnimalsMessage response = JsonConvert.DeserializeObject<AnimalsMessage>(infoTask.Result);
 
 			return response;
+		}
+
+		private void RaiseAdoptableAnimalsUpdate(AnimalsMessage message)
+		{
+			AdoptableAnimalsUpdate?.Invoke(this, message);
 		}
 
 		private bool NeedsNewToken()
