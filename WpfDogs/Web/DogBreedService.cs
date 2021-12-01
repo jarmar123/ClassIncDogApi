@@ -25,8 +25,8 @@ namespace WpfDogs.Web
 		/// <returns></returns>
 		Task GetAllBreedsAsync();
 
-		BreedsResponse GetAllBreeds();
-		BreedImagesResponse GetImagesForBreed(string breedName);
+		Task<BreedsResponse> GetAllBreeds();
+		Task<BreedImagesResponse> GetImagesForBreed(string breedName);
 	}
 
 	public class DogBreedService : IDogServiceInterface
@@ -38,18 +38,18 @@ namespace WpfDogs.Web
 		public event EventHandler<BreedsResponse> BreedsListUpdated;
 		public event EventHandler<BreedImagesResponse> ImageUrlUpdated;
 
-		public BreedsResponse GetAllBreeds()
+		public async Task<BreedsResponse> GetAllBreeds()
 		{
 			const string allBreedsUrl = "https://dog.ceo/api/breeds/list/all";
-			string responseBody = MakeApiRequest(allBreedsUrl);
+			string responseBody = await MakeApiRequest(allBreedsUrl);
 			BreedsResponse m = JsonConvert.DeserializeObject<BreedsResponse>(responseBody);
 			return m;
 		}
 
-		public BreedImagesResponse GetImagesForBreed(string breedName)
+		public async Task<BreedImagesResponse> GetImagesForBreed(string breedName)
 		{
 			string imagesUrl = $"https://dog.ceo/api/breed/{breedName}/images";
-			string json = MakeApiRequest(imagesUrl);
+			string json = await MakeApiRequest(imagesUrl);
 			BreedImagesResponse response = JsonConvert.DeserializeObject<BreedImagesResponse>(json);
 			return response;
 		}
@@ -58,7 +58,7 @@ namespace WpfDogs.Web
 			string imagesUrl = $"https://dog.ceo/api/breed/{breedName}/images";
 			Task.Run(async () =>
 			{
-				string json = MakeApiRequest(imagesUrl);
+				string json = await MakeApiRequest(imagesUrl);
 				BreedImagesResponse response = JsonConvert.DeserializeObject<BreedImagesResponse>(json);
 				RaiseImageUrlUpdate(response);
 			});
@@ -69,7 +69,7 @@ namespace WpfDogs.Web
 			const string allBreedsUrl = "https://dog.ceo/api/breeds/list/all";
 			Task.Run(async () =>
 			{
-				string responseBody = MakeApiRequest(allBreedsUrl);
+				string responseBody = await MakeApiRequest(allBreedsUrl);
 				BreedsResponse m = JsonConvert.DeserializeObject<BreedsResponse>(responseBody);
 				RaiseBreedListUpdate(m);
 			});
@@ -85,13 +85,13 @@ namespace WpfDogs.Web
 			ImageUrlUpdated?.Invoke(this, response);
 		}
 
-		private string MakeApiRequest(string url)
+		private async Task<string> MakeApiRequest(string url)
 		{
 			//I considered using a lock here, but i don't think it's necessary as HttpClient is built to handle
 			//multiple requests completely separately.
-			HttpResponseMessage response = client.GetAsync(url).Result;
+			HttpResponseMessage response = await client.GetAsync(url);
 			response.EnsureSuccessStatusCode();
-			string responseBody = response.Content.ReadAsStringAsync().Result;
+			string responseBody = await response.Content.ReadAsStringAsync();
 			return responseBody;
 		}
 	}

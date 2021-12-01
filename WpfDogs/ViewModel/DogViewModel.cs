@@ -34,7 +34,6 @@ namespace WpfDogs
 		private Dog selectedDogBreed;
 
 		private string imageUrl;
-		private string breed;
 		private string searchText;
 		private string sortType;
 
