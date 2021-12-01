@@ -1,0 +1,58 @@
+﻿<Window x:Class="WpfDogs.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:WpfDogs"
+        xmlns:componentModel="clr-namespace:System.ComponentModel;assembly=WindowsBase"
+        mc:Ignorable="d"
+        Title="Breed Finder" Height="450" Width="800" MinHeight="350" MinWidth="700">
+	<Window.DataContext>
+		<local:DogViewModel/>
+	</Window.DataContext>
+	<Grid Background="Gainsboro">
+		<Grid.ColumnDefinitions>
+			<ColumnDefinition Width="2*"></ColumnDefinition>
+			<ColumnDefinition Width="2*"></ColumnDefinition>
+			<ColumnDefinition Width="4*"></ColumnDefinition>
+			<ColumnDefinition Width="2*"></ColumnDefinition>
+			<ColumnDefinition Width="2*"></ColumnDefinition>
+		</Grid.ColumnDefinitions>
+		<Grid.RowDefinitions>
+			<RowDefinition Height="*"></RowDefinition>
+			<RowDefinition Height="4*"></RowDefinition>
+		</Grid.RowDefinitions>
+		<Label Name="TitleLabel" Grid.Row="0" Grid.Column="2" HorizontalAlignment="Left" VerticalAlignment="Center" FontSize="24" FontWeight="Bold">Breed Finder</Label>
+		<StackPanel Name="ButtonStackPanel" Orientation="Horizontal" Grid.Row="0" Grid.Column="2">
+			<Button Name="GetBreedsButton" Content="Get Breeds" Command="{Binding Path=SearchAllBreeds}" HorizontalAlignment="Left" VerticalAlignment="Bottom" Width="75" Background="DarkGray"/>
+			<Button Content="Open Adoption Page" Command="{Binding Path=OpenAdoptWindow}" HorizontalAlignment="Left" VerticalAlignment="Bottom" Width="auto" Background="DarkGray"/>
+		</StackPanel>
+		
+
+		<StackPanel Name="SortingControlStackPanel" Grid.Row="1" Grid.Column="1">
+
+			<Label FontWeight="Bold" HorizontalAlignment="Right" Margin="0,45,0,0">Sort By:</Label>
+			<StackPanel HorizontalAlignment="Right" Height="100" VerticalAlignment="Center"  Width="50">
+				<RadioButton Width="150" Content="Breed" Command="{Binding Path=SortTypeCommand}" Name="RbBreed" CommandParameter="{Binding ElementName=RbBreed, Path=Content}" IsChecked="True"></RadioButton>
+				<RadioButton Width="150" Content="AZ" Command="{Binding Path=SortTypeCommand}" Name="RbAz" CommandParameter="{Binding ElementName=RbAz, Path=Content}"></RadioButton>
+				<RadioButton Width="150" Content="ZA" Command="{Binding Path=SortTypeCommand}" Name="RbZa" CommandParameter="{Binding ElementName=RbZa, Path=Content}"></RadioButton>
+			</StackPanel>
+		</StackPanel>
+
+			<StackPanel Name="BreedListControlsStackPanel" Grid.Row="1" Grid.Column="2">
+				<Label Name="SearchTextLabel" FontSize="10">Search Text:</Label>
+				<TextBox Name="SearchText" Text="{Binding Path=SearchText, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Left" Height="23" TextWrapping="Wrap"  VerticalAlignment="Top" Width="120"/>
+			<ListView Name="BreedListView" ItemsSource="{Binding FilteredDogList}" SelectedItem="{Binding Path=SelectedDogBreed}" HorizontalAlignment="Left" Height="200" VerticalAlignment="Top" Width="184">
+				<ListView.View>
+					<GridView >
+						<GridViewColumn Header="Dog Breed" DisplayMemberBinding="{Binding DisplayName}" />
+					</GridView>
+				</ListView.View>
+			</ListView>
+		</StackPanel>
+		<StackPanel Name="ImageStackPanel" Grid.Row="1" Grid.Column="3">
+			<Label Name="BreedDisplay" Content="{Binding Path=SelectedDogBreed.DisplayName}" Grid.Row="1" Grid.Column="3" HorizontalAlignment="Left" VerticalAlignment="Top" FontSize="16" Height="43" Width="220"/>
+			<Image Source="{Binding ImageUrl}" Grid.Row="1" Grid.Column="3" Grid.ColumnSpan="2" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0 10 0 0" Height="191" Width="177"/>
+		</StackPanel>
+	</Grid>
+</Window>
